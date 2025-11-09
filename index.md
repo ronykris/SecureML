@@ -1,7 +1,7 @@
 ---
 
 layout: col-sidebar
-title: OWASP AI Model Watermarking
+title: OWASP | SecureML - Securing and Watermarking AI models
 tags: example-tag
 level: 2
 type: code
