@@ -91,3 +91,7 @@ Thumbs.db
 SECURITY.md
 DISTRIBUT*.md
 release.sh
+/Gemfile
+/Gemfile.lock
+/favicon.ico
+_site/
