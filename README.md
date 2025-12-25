@@ -178,13 +178,14 @@ SecureML helps you meet regulatory requirements:
 ## Documentation
 
 - 📦 **[PyPI Package](https://pypi.org/project/secureaiml/)** - Official package on PyPI
-- 🚀 **[Quick Start Guide](secureml/docs/QUICKSTART.md)** - Get started in 5 minutes
-- 🛡️ **[Threat Model](secureml/docs/threat_model.md)** - Security analysis and limitations
-- 📚 **[Usage Guide](secureml/docs/USAGE_GUIDE.md)** - Comprehensive usage documentation
-- 🎨 **[Interactive Demos](secureml/docs/README_DEMOS.md)** - Live demos and examples
+- 🚀 **[Quick Start Guide](secureml/docs/quickstart.md)** - Get started in 5 minutes
+- 📚 **[Installation Guide](secureml/docs/installation.md)** - Installation instructions
+- 📖 **[Usage Guide](secureml/docs/USAGE_GUIDE.md)** - Comprehensive usage documentation
 - 🔒 **[Watermarking Features](secureml/docs/WATERMARKING_FEATURES.md)** - Model watermarking guide
+- 🛡️ **[Threat Model](secureml/docs/threat_model.md)** - Security analysis and limitations
 - 🔗 **[OpenSSF Integration](secureml/docs/openssf_integration.md)** - OpenSSF Model Signing integration
-- 📖 **[Complete Demo Guide](secureml/docs/COMPLETE_DEMO_GUIDE.md)** - Full demo walkthrough
+- 🎨 **[Interactive Demo](secureml/docs/INTERACTIVE_DEMO_README.md)** - Hands-on watermarking demo
+- 🔐 **[Security Demo](secureml/docs/SECURITY_DEMO_README.md)** - Attack simulation demo
 
 ## Examples
 
