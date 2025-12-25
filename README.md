@@ -184,8 +184,6 @@ SecureML helps you meet regulatory requirements:
 - 🔒 **[Watermarking Features](secureml/docs/WATERMARKING_FEATURES.md)** - Model watermarking guide
 - 🛡️ **[Threat Model](secureml/docs/threat_model.md)** - Security analysis and limitations
 - 🔗 **[OpenSSF Integration](secureml/docs/openssf_integration.md)** - OpenSSF Model Signing integration
-- 🎨 **[Interactive Demo](secureml/docs/INTERACTIVE_DEMO_README.md)** - Hands-on watermarking demo
-- 🔐 **[Security Demo](secureml/docs/SECURITY_DEMO_README.md)** - Attack simulation demo
 
 ## Examples
 
