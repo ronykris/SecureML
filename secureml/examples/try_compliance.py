@@ -1,6 +1,13 @@
 """
 SecureML Compliance Validation Example
+
+Installation:
+    pip install secureaiml
+
 Demonstrates compliance checking against regulatory frameworks
+
+Documentation: https://github.com/OWASP/SecureML
+PyPI: https://pypi.org/project/secureaiml/
 """
 
 from secureml.core.compliance import ComplianceValidator, ComplianceStatus

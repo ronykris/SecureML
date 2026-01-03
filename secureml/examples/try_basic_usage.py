@@ -1,6 +1,11 @@
 """
 Basic SecureML Usage Example
-Works without OpenSSF model-signing installed
+
+Installation:
+    pip install secureaiml
+
+Documentation: https://github.com/OWASP/SecureML
+PyPI: https://pypi.org/project/secureaiml/
 """
 
 from secureml import SecureModel

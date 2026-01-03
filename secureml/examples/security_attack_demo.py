@@ -1,6 +1,9 @@
 """
 ML Model Security Attack Simulation Demo
 
+Installation:
+    pip install secureaiml
+
 This demo simulates real-world attacks on ML models and shows how
 watermarking can detect and prevent them:
 
@@ -11,6 +14,9 @@ watermarking can detect and prevent them:
 5. Unauthorized Distribution - Track leaked models across the supply chain
 
 Each scenario demonstrates the security value of watermarking for IP protection.
+
+Documentation: https://github.com/OWASP/SecureML
+PyPI: https://pypi.org/project/secureaiml/
 """
 
 import sys

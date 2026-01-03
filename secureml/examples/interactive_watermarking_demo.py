@@ -1,6 +1,9 @@
 """
 Interactive ML Model Watermarking Demo
 
+Installation:
+    pip install secureaiml
+
 This interactive demo allows you to:
 1. Choose from multiple model types (sklearn, XGBoost, PyTorch, etc.)
 2. Select watermarking techniques (Parameter, Trigger Set, Statistical)
@@ -9,6 +12,9 @@ This interactive demo allows you to:
 5. Compare different approaches
 
 Run this demo to explore SecureML's watermarking capabilities!
+
+Documentation: https://github.com/OWASP/SecureML
+PyPI: https://pypi.org/project/secureaiml/
 """
 
 import sys
@@ -16,9 +22,9 @@ import numpy as np
 from typing import Any, Dict, Optional, Tuple
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, RandomForestRegressor, GradientBoostingRegressor
 from sklearn.linear_model import LogisticRegression, Ridge
-from sklearn.svm import SVC
+from sklearn.svm import SVC, SVR
 
 from secureml import SecureModel, WatermarkType, TriggerSet
 
@@ -122,12 +128,20 @@ def train_model(model_type: str, X_train, y_train, task: str = 'classification')
     """Train a model based on user selection"""
     print_info(f"Training {model_type} model...")
 
-    models = {
-        'rf': RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42),
-        'gb': GradientBoostingClassifier(n_estimators=100, max_depth=5, random_state=42),
-        'lr': LogisticRegression(max_iter=1000, random_state=42) if task == 'classification' else Ridge(random_state=42),
-        'svm': SVC(kernel='rbf', random_state=42),
-    }
+    if task == 'classification':
+        models = {
+            'rf': RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42),
+            'gb': GradientBoostingClassifier(n_estimators=100, max_depth=5, random_state=42),
+            'lr': LogisticRegression(max_iter=1000, random_state=42),
+            'svm': SVC(kernel='rbf', random_state=42),
+        }
+    else:
+        models = {
+            'rf': RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42),
+            'gb': GradientBoostingRegressor(n_estimators=100, max_depth=5, random_state=42),
+            'lr': Ridge(random_state=42),
+            'svm': SVR(kernel='rbf'),
+        }
 
     # Try to import and use XGBoost if available
     if model_type == 'xgb':
@@ -138,8 +152,10 @@ def train_model(model_type: str, X_train, y_train, task: str = 'classification')
             else:
                 model = xgb.XGBRegressor(n_estimators=100, max_depth=5, random_state=42)
         except ImportError:
-            print_warning("XGBoost not installed. Falling back to Gradient Boosting.")
-            model = models['gb']
+            print_error("XGBoost not installed.")
+            print_info("Please install XGBoost with: pip install xgboost")
+            print_info("Then restart the demo.")
+            sys.exit(1)
     else:
         model = models.get(model_type, models['rf'])
 

@@ -1,8 +1,14 @@
 """
 SecureML Security Proof - ACTUAL HuggingFace Models
 
+Installation:
+    pip install secureaiml
+
 Downloads and verifies security for various HuggingFace models.
 Choose from multiple model types and sizes.
+
+Documentation: https://github.com/OWASP/SecureML
+PyPI: https://pypi.org/project/secureaiml/
 """
 
 import json

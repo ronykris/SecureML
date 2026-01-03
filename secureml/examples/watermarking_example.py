@@ -1,6 +1,9 @@
 """
 Example: ML Model Watermarking for IP Protection
 
+Installation:
+    pip install secureaiml
+
 This example demonstrates how to:
 1. Embed watermarks in ML models for ownership verification
 2. Verify watermark presence and integrity
@@ -13,6 +16,9 @@ Watermarking is crucial for:
 - Detecting model theft or unauthorized distribution
 - Tracking model provenance
 - Protecting proprietary ML algorithms
+
+Documentation: https://github.com/OWASP/SecureML
+PyPI: https://pypi.org/project/secureaiml/
 """
 
 import numpy as np

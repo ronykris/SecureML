@@ -1,6 +1,13 @@
 """
 SecureML Advanced Fingerprinting Example
+
+Installation:
+    pip install secureaiml
+
 Demonstrates model fingerprinting and integrity checking
+
+Documentation: https://github.com/OWASP/SecureML
+PyPI: https://pypi.org/project/secureaiml/
 """
 
 from secureml.core.fingerprint import ModelFingerprint

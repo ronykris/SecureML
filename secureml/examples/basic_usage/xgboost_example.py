@@ -1,12 +1,19 @@
 """
 Example: Securing an XGBoost model with SecureML
 
+Installation:
+    pip install secureaiml
+    pip install xgboost
+
 This example demonstrates how to:
 1. Train an XGBoost model
 2. Sign it with SecureML
 3. Save as a secure package
 4. Load and verify
 5. Make predictions
+
+Documentation: https://github.com/OWASP/SecureML
+PyPI: https://pypi.org/project/secureaiml/
 """
 
 import numpy as np

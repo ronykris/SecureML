@@ -1,10 +1,17 @@
 """
 Example: Securing a HuggingFace model with SecureML
 
+Installation:
+    pip install secureaiml
+    pip install transformers
+
 This example shows how to secure transformer models from HuggingFace.
 
 Note: This is a demonstration example that shows the workflow without
 actually downloading models (to avoid heavy dependencies).
+
+Documentation: https://github.com/OWASP/SecureML
+PyPI: https://pypi.org/project/secureaiml/
 """
 
 # from transformers import AutoTokenizer, AutoModel  # Commented out to avoid heavy dependencies

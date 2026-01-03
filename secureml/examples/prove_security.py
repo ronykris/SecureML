@@ -1,6 +1,9 @@
 """
 SecureML Security Proof - Demonstrates Model Protection
 
+Installation:
+    pip install secureaiml
+
 This example PROVES that SecureML can:
 1. Detect when a model has been tampered with
 2. Prevent use of compromised models
@@ -8,6 +11,9 @@ This example PROVES that SecureML can:
 4. Track model provenance
 
 Run this to see security in action!
+
+Documentation: https://github.com/OWASP/SecureML
+PyPI: https://pypi.org/project/secureaiml/
 """
 
 import joblib

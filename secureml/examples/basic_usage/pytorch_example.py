@@ -1,10 +1,17 @@
 """
 Example: Securing a PyTorch model with SecureML
 
+Installation:
+    pip install secureaiml
+    pip install torch
+
 This example demonstrates securing a simple PyTorch neural network.
 
 Note: This is a demonstration example showing the workflow without
 actually training models (to avoid heavy PyTorch dependencies).
+
+Documentation: https://github.com/OWASP/SecureML
+PyPI: https://pypi.org/project/secureaiml/
 """
 
 # import torch
