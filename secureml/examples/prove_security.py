@@ -27,6 +27,12 @@ from secureml import SecureModel
 from secureml.core.fingerprint import ModelFingerprint
 from secureml.utils.config import SecurityLevel
 
+
+def pause():
+    """Pause for user to read"""
+    input("\n⏸️  Press Enter to continue...")
+
+
 print("=" * 80)
 print("🔐 SecureML Security Proof - Live Demonstration")
 print("=" * 80)
@@ -82,8 +88,8 @@ print("\n3. Creating security fingerprint...")
 fingerprint = ModelFingerprint.create(
     model_path=model_path,
     algorithms=["sha256", "sha512"],
-    enable_merkle=True,
-    chunk_size=1024 * 64
+    enable_merkle=True
+    # Using default chunk_size of 1MB for consistency with verify()
 )
 
 original_sha256 = fingerprint.hashes['sha256'].digest
@@ -93,6 +99,8 @@ print(f"   ✓ SHA-256: {original_sha256[:32]}...")
 print(f"   ✓ SHA-512: {fingerprint.hashes['sha512'].digest[:32]}...")
 print(f"   ✓ Merkle root: {original_merkle[:32]}...")
 print(f"   ✓ Merkle tree depth: {len(fingerprint.merkle_tree)} chunks")
+
+pause()
 
 # Save fingerprint
 fp_path = temp_dir / "fraud_model_fingerprint.json"
@@ -105,6 +113,8 @@ sample_predictions = model.predict(X_test[:5])
 sample_probabilities = model.predict_proba(X_test[:5])
 print(f"   ✓ Predictions: {sample_predictions}")
 print(f"   ✓ Confidence: {sample_probabilities.max(axis=1)}")
+
+pause()
 
 # ============================================================================
 # PROOF 1: Verify Original Model is Valid
@@ -125,258 +135,391 @@ if is_valid and merkle_valid:
 else:
     print("\n   ❌ MODEL VERIFICATION FAILED - Do not use!")
 
-# ============================================================================
-# ATTACK SCENARIO 1: Subtle Model Tampering
-# ============================================================================
-print("\n\n" + "=" * 80)
-print("🚨 ATTACK SCENARIO 1: Subtle Model File Tampering")
-print("=" * 80)
-
-print("\n⚠️  SIMULATING ATTACK: Attacker modifies model file...")
-print("   (In real world: malicious insider, supply chain attack, etc.)")
-
-# Read and slightly modify the file
-with open(model_path, "rb") as f:
-    original_bytes = f.read()
-
-print(f"   • Original file size: {len(original_bytes):,} bytes")
-
-# Tamper with the model by adding a few bytes
-tampered_bytes = original_bytes + b"\x00\x01\x02\x03TAMPERED"
-with open(model_path, "wb") as f:
-    f.write(tampered_bytes)
-
-new_size = model_path.stat().st_size
-print(f"   • Tampered file size: {new_size:,} bytes")
-print(f"   • Bytes added: {new_size - file_size}")
-print("\n   🔴 ATTACK COMPLETE: Model file has been tampered with!")
-
-# Now try to verify
-print("\n🔍 DETECTING TAMPERING...")
-print("   Loading saved fingerprint and verifying...")
-
-loaded_fp = ModelFingerprint.from_json(fp_path)
-is_valid_after_tamper = loaded_fp.verify(algorithm="sha256")
-
-print(f"   • SHA-256 verification: {'PASSED' if is_valid_after_tamper else 'FAILED'}")
-
-if not is_valid_after_tamper:
-    print("\n   🛡️  ✅ TAMPERING DETECTED!")
-    print("   🚫 Model rejected - cannot be loaded")
-    print("   ⚠️  Security alert triggered")
-    print("\n   PROOF: SecureML successfully prevented use of tampered model!")
-else:
-    print("\n   ❌ SECURITY FAILURE - This should not happen!")
+pause()
 
 # ============================================================================
-# ATTACK SCENARIO 2: Model Substitution Attack
+# INTERACTIVE MENU LOOP
 # ============================================================================
-print("\n\n" + "=" * 80)
-print("🚨 ATTACK SCENARIO 2: Model Substitution Attack")
-print("=" * 80)
 
-print("\n⚠️  SIMULATING ATTACK: Attacker replaces model with malicious version...")
+while True:
+    print("\n\n" + "=" * 80)
+    print("🎯 SELECT ATTACK SCENARIOS TO RUN")
+    print("=" * 80)
+    print("""
+Available demonstrations:
+  1. Subtle Model File Tampering
+  2. Model Substitution Attack
+  3. Partial File Corruption
+  4. Run All Scenarios
+  0. Exit
 
-# Train a different "malicious" model
-malicious_model = RandomForestClassifier(n_estimators=10, max_depth=3, random_state=999)
-malicious_model.fit(X_train, y_train)
+Choose which attack scenarios you want to see:""")
 
-# This malicious model has worse performance (simulating backdoor)
-malicious_accuracy = malicious_model.score(X_test, y_test)
+    while True:
+        choice = input("\nEnter choice (0-4): ").strip()
+        if choice in ['0', '1', '2', '3', '4']:
+            break
+        print("❌ Invalid choice. Please enter 0-4.")
 
-print(f"   • Original model accuracy: {original_accuracy:.2%}")
-print(f"   • Malicious model accuracy: {malicious_accuracy:.2%}")
-print(f"   • Performance degradation: {(original_accuracy - malicious_accuracy)*100:.1f}%")
+    if choice == '0':
+        print("\n✅ Exiting demo.")
+        import shutil
+        shutil.rmtree(temp_dir)
+        exit(0)
 
-# Replace the model file
-print("\n   Replacing original model with malicious model...")
-joblib.dump(malicious_model, model_path)
-print("   🔴 ATTACK COMPLETE: Model has been substituted!")
+    run_all = choice == '4'
+    scenarios_to_run = {
+        '1': run_all or choice == '1',
+        '2': run_all or choice == '2',
+        '3': run_all or choice == '3'
+    }
 
-# Try to verify
-print("\n🔍 DETECTING SUBSTITUTION...")
-substitution_valid = loaded_fp.verify(algorithm="sha256")
+    # ============================================================================
+    # ATTACK SCENARIO 1: Subtle Model Tampering
+    # ============================================================================
+    if scenarios_to_run['1']:
+        print("\n\n" + "=" * 80)
+        print("🚨 ATTACK SCENARIO 1: Subtle Model File Tampering")
+        print("=" * 80)
 
-print(f"   • SHA-256 verification: {'PASSED' if substitution_valid else 'FAILED'}")
+        print("\n⚠️  SIMULATING ATTACK: Attacker modifies model file...")
+        print("   (In real world: malicious insider, supply chain attack, etc.)")
 
-if not substitution_valid:
-    print("\n   🛡️  ✅ SUBSTITUTION DETECTED!")
-    print("   🚫 Malicious model rejected")
-    print("   ⚠️  Incident logged and alerts sent")
-    print("\n   PROOF: SecureML prevented malicious model from being used!")
-else:
-    print("\n   ❌ SECURITY FAILURE - This should not happen!")
+        pause()
 
-# ============================================================================
-# ATTACK SCENARIO 3: Partial File Corruption
-# ============================================================================
-print("\n\n" + "=" * 80)
-print("🚨 ATTACK SCENARIO 3: Partial File Corruption")
-print("=" * 80)
+        # Read and slightly modify the file
+        with open(model_path, "rb") as f:
+            original_bytes = f.read()
 
-print("\n⚠️  SIMULATING ATTACK: File corruption in middle of model...")
+        print(f"\n📊 BEFORE ATTACK:")
+        print(f"   • Original file size: {len(original_bytes):,} bytes")
+        print(f"   • Original SHA-256: {original_sha256[:32]}...")
+        print(f"   • Last 20 bytes: {original_bytes[-20:].hex()}")
 
-# Restore original first
-joblib.dump(model, model_path)
+        # Tamper with the model by adding a few bytes
+        tampered_bytes = original_bytes + b"\x00\x01\x02\x03TAMPERED"
+        with open(model_path, "wb") as f:
+            f.write(tampered_bytes)
 
-# Corrupt middle of file
-with open(model_path, "r+b") as f:
-    f.seek(file_size // 2)  # Go to middle
-    f.write(b"CORRUPTED_DATA_XXXX")
+        new_size = model_path.stat().st_size
 
-print("   🔴 ATTACK COMPLETE: File partially corrupted!")
+        # Calculate new hash to show it changed
+        import hashlib
+        new_hash = hashlib.sha256(tampered_bytes).hexdigest()
 
-# Verify with Merkle tree (which detects partial corruption better)
-print("\n🔍 DETECTING CORRUPTION WITH MERKLE TREE...")
+        print(f"\n📊 AFTER ATTACK:")
+        print(f"   • Tampered file size: {new_size:,} bytes")
+        print(f"   • Bytes added: {new_size - file_size}")
+        print(f"   • New SHA-256: {new_hash[:32]}...")
+        print(f"   • Last 20 bytes: {tampered_bytes[-20:].hex()}")
+        print(f"   • Injected data: {tampered_bytes[-12:].hex()} (00 01 02 03 TAMPERED)")
+        print("\n   🔴 ATTACK COMPLETE: Model file has been tampered with!")
 
-corruption_valid = loaded_fp.verify(algorithm="sha256", verify_merkle=True)
+        pause()
 
-print(f"   • Merkle tree verification: {'PASSED' if corruption_valid else 'FAILED'}")
+        # Now try to verify
+        print("\n🔍 DETECTING TAMPERING...")
+        print("   Loading saved fingerprint and verifying...")
 
-if not corruption_valid:
-    print("\n   🛡️  ✅ CORRUPTION DETECTED!")
-    print("   🚫 Corrupted model rejected")
-    print("   📊 Merkle tree pinpointed corrupted chunks")
-    print("\n   PROOF: Even partial corruption is detected!")
-else:
-    print("\n   ❌ SECURITY FAILURE - This should not happen!")
+        loaded_fp = ModelFingerprint.from_json(fp_path)
+        is_valid_after_tamper = loaded_fp.verify(algorithm="sha256")
 
-# ============================================================================
-# PROOF 2: Verify Restored Model is Valid Again
-# ============================================================================
-print("\n\n" + "=" * 80)
-print("✅ PROOF 2: Legitimate Model Restoration")
-print("=" * 80)
+        print(f"   • SHA-256 verification: {'PASSED' if is_valid_after_tamper else 'FAILED'}")
 
-print("\nRestoring original trusted model from backup...")
-joblib.dump(model, model_path)
-print("   ✓ Model restored from trusted source")
+        if not is_valid_after_tamper:
+            print("\n   🛡️  ✅ TAMPERING DETECTED!")
+            print("   🚫 Model rejected - cannot be loaded")
+            print("   ⚠️  Security alert triggered")
+            print("\n   PROOF: SecureML successfully prevented use of tampered model!")
+        else:
+            print("\n   ❌ SECURITY FAILURE - This should not happen!")
 
-print("\nVerifying restored model...")
-restored_valid = loaded_fp.verify(algorithm="sha256", verify_merkle=True)
+        pause()
 
-print(f"   • SHA-256 verification: {'PASSED' if restored_valid else 'FAILED'}")
-print(f"   • Merkle tree verification: {'PASSED' if restored_valid else 'FAILED'}")
+    # ============================================================================
+    # ATTACK SCENARIO 2: Model Substitution Attack
+    # ============================================================================
+    if scenarios_to_run['2']:
+        print("\n\n" + "=" * 80)
+        print("🚨 ATTACK SCENARIO 2: Model Substitution Attack")
+        print("=" * 80)
 
-if restored_valid:
-    print("\n   ✅ MODEL IS TRUSTED AGAIN - Safe to use")
-    print("   ✓ All security checks passed")
-    print("   ✓ Model can be deployed to production")
+        print("\n⚠️  SIMULATING ATTACK: Attacker replaces model with malicious version...")
 
-    # Test it works
-    restored_model = joblib.load(model_path)
-    test_preds = restored_model.predict(X_test[:3])
-    print(f"   ✓ Test predictions: {test_preds}")
-    print("\n   PROOF: Legitimate models pass all security checks!")
-else:
-    print("\n   ❌ Unexpected failure")
+        pause()
 
-# ============================================================================
-# SECURITY SUMMARY
-# ============================================================================
-print("\n\n" + "=" * 80)
-print("📊 SECURITY PROOF SUMMARY")
-print("=" * 80)
+        # Show original model info
+        print(f"\n📊 ORIGINAL MODEL:")
+        print(f"   • Type: RandomForestClassifier")
+        print(f"   • n_estimators: 100")
+        print(f"   • max_depth: 10")
+        print(f"   • Training accuracy: {model.score(X_train, y_train):.2%}")
+        print(f"   • Test accuracy: {original_accuracy:.2%}")
+        print(f"   • File SHA-256: {original_sha256[:32]}...")
 
-print("\n✅ PROVEN SECURITY CAPABILITIES:")
-print("   ✓ Detects file tampering (even 1 byte change)")
-print("   ✓ Detects model substitution attacks")
-print("   ✓ Detects partial file corruption")
-print("   ✓ Verifies legitimate models correctly")
-print("   ✓ Uses cryptographic hashing (SHA-256, SHA-512)")
-print("   ✓ Uses Merkle trees for distributed verification")
+        # Train a different "malicious" model
+        print(f"\n⚙️  Training malicious substitute model...")
+        malicious_model = RandomForestClassifier(n_estimators=10, max_depth=3, random_state=999)
+        malicious_model.fit(X_train, y_train)
 
-print("\n🚨 ATTACKS SUCCESSFULLY BLOCKED:")
-print("   1. ✅ File tampering (8 bytes added) - DETECTED")
-print("   2. ✅ Model substitution attack - DETECTED")
-print("   3. ✅ Partial file corruption - DETECTED")
+        # This malicious model has worse performance (simulating backdoor)
+        malicious_accuracy = malicious_model.score(X_test, y_test)
 
-print("\n🔐 SECURITY FEATURES DEMONSTRATED:")
-print("   • Multi-algorithm hashing (SHA-256 + SHA-512)")
-print("   • Merkle tree verification")
-print("   • Fingerprint persistence (JSON)")
-print("   • Tamper-proof verification")
-print("   • Legitimate model acceptance")
+        print(f"\n📊 MALICIOUS MODEL:")
+        print(f"   • Type: RandomForestClassifier (appears same)")
+        print(f"   • n_estimators: 10 (DIFFERENT)")
+        print(f"   • max_depth: 3 (DIFFERENT)")
+        print(f"   • Training accuracy: {malicious_model.score(X_train, y_train):.2%}")
+        print(f"   • Test accuracy: {malicious_accuracy:.2%}")
+        print(f"   • Performance degradation: {(original_accuracy - malicious_accuracy)*100:.1f}%")
+        print(f"\n   ⚠️  Model may contain backdoor despite appearing functional!")
 
-print("\n💡 REAL-WORLD IMPLICATIONS:")
-print("   • Supply chain attack protection")
-print("   • Insider threat detection")
-print("   • Compliance and audit trails")
-print("   • Model provenance tracking")
-print("   • Incident response capabilities")
+        # Replace the model file
+        print("\n   Replacing original model with malicious model...")
+        joblib.dump(malicious_model, model_path)
 
-print("\n🎯 KEY TAKEAWAY:")
-print("   SecureML CRYPTOGRAPHICALLY GUARANTEES model integrity.")
-print("   Any tampering attempt is immediately detected and blocked.")
-print("   Only verified, trusted models can be used in production.")
+        # Show the hash changed
+        with open(model_path, "rb") as f:
+            new_model_bytes = f.read()
+        new_model_hash = hashlib.sha256(new_model_bytes).hexdigest()
 
-# ============================================================================
-# ADDITIONAL SECURITY METRICS
-# ============================================================================
-print("\n\n" + "=" * 80)
-print("📈 SECURITY METRICS")
-print("=" * 80)
+        print(f"   • New file SHA-256: {new_model_hash[:32]}...")
+        print(f"   • Hash changed: {new_model_hash != original_sha256}")
+        print("   🔴 ATTACK COMPLETE: Model has been substituted!")
 
-print("\nTampering Detection Rate:")
-print(f"   • Attacks attempted: 3")
-print(f"   • Attacks detected: 3")
-print(f"   • Detection rate: 100%")
-print(f"   • False positives: 0")
-print(f"   • False negatives: 0")
+        pause()
 
-print("\nCryptographic Strength:")
-print(f"   • SHA-256: 256-bit security")
-print(f"   • SHA-512: 512-bit security")
-print(f"   • Merkle tree: Additional layer")
-print(f"   • Combined: Industry-standard protection")
+        # Try to verify
+        print("\n🔍 DETECTING SUBSTITUTION...")
+        substitution_valid = loaded_fp.verify(algorithm="sha256")
 
-print("\nVerification Performance:")
-print(f"   • Fingerprint creation: ~100ms")
-print(f"   • Verification check: ~50ms")
-print(f"   • Overhead: Negligible for production")
+        print(f"   • SHA-256 verification: {'PASSED' if substitution_valid else 'FAILED'}")
 
-# ============================================================================
-# CONCLUSION
-# ============================================================================
-print("\n\n" + "=" * 80)
-print("🏆 PROOF COMPLETE")
-print("=" * 80)
+        if not substitution_valid:
+            print("\n   🛡️  ✅ SUBSTITUTION DETECTED!")
+            print("   🚫 Malicious model rejected")
+            print("   ⚠️  Incident logged and alerts sent")
+            print("\n   PROOF: SecureML prevented malicious model from being used!")
+        else:
+            print("\n   ❌ SECURITY FAILURE - This should not happen!")
 
-print("\n✅ SECURITY PROVEN:")
-print("   SecureML successfully detected ALL tampering attempts.")
-print("   Legitimate models passed ALL security checks.")
-print("   Your models are CRYPTOGRAPHICALLY PROTECTED.")
+        pause()
 
-print("\n🔐 WHAT THIS MEANS FOR YOU:")
-print("   • Deploy models with confidence")
-print("   • Detect supply chain attacks")
-print("   • Meet compliance requirements")
-print("   • Track model provenance")
-print("   • Respond to security incidents")
+    # ============================================================================
+    # ATTACK SCENARIO 3: Partial File Corruption
+    # ============================================================================
+    if scenarios_to_run['3']:
+        print("\n\n" + "=" * 80)
+        print("🚨 ATTACK SCENARIO 3: Partial File Corruption")
+        print("=" * 80)
 
-print("\n💼 PRODUCTION READY:")
-print("   • Use SecurityLevel.ENTERPRISE or MAXIMUM")
-print("   • Enable audit logging")
-print("   • Store fingerprints securely")
-print("   • Verify before every deployment")
-print("   • Monitor for verification failures")
+        print("\n⚠️  SIMULATING ATTACK: File corruption in middle of model...")
 
-print("\n🚀 NEXT STEPS:")
-print("   1. Integrate fingerprinting into your pipeline")
-print("   2. Store fingerprints in secure storage")
-print("   3. Verify models before deployment")
-print("   4. Set up security alerts")
-print("   5. Enable audit logging")
+        pause()
 
-print("\n" + "=" * 80)
-print("✅ Security proof complete! Your models are protected.")
-print("=" * 80)
+        # Restore original first
+        joblib.dump(model, model_path)
 
-# Cleanup
-import shutil
-shutil.rmtree(temp_dir)
+        # Show before corruption
+        with open(model_path, "rb") as f:
+            f.seek(file_size // 2)
+            original_middle_bytes = f.read(19)
 
-print("\n📝 Try this with your own models:")
-print("   from secureml.core.fingerprint import ModelFingerprint")
-print("   fp = ModelFingerprint.create('your_model.pkl')")
-print("   if not fp.verify(): print('Tampering detected!')")
+        print(f"\n📊 BEFORE CORRUPTION:")
+        print(f"   • File size: {file_size:,} bytes")
+        print(f"   • Corruption target: byte offset {file_size // 2:,} (middle of file)")
+        print(f"   • Original bytes at offset: {original_middle_bytes.hex()}")
+        print(f"   • Original SHA-256: {original_sha256[:32]}...")
+
+        # Corrupt middle of file
+        corruption_data = b"CORRUPTED_DATA_XXXX"
+        with open(model_path, "r+b") as f:
+            f.seek(file_size // 2)  # Go to middle
+            f.write(corruption_data)
+
+        # Show after corruption
+        with open(model_path, "rb") as f:
+            f.seek(file_size // 2)
+            corrupted_middle_bytes = f.read(19)
+            f.seek(0)
+            all_bytes = f.read()
+
+        corrupted_hash = hashlib.sha256(all_bytes).hexdigest()
+
+        print(f"\n📊 AFTER CORRUPTION:")
+        print(f"   • File size: {file_size:,} bytes (unchanged - stealth attack!)")
+        print(f"   • Corrupted bytes at offset: {corrupted_middle_bytes.hex()}")
+        print(f"   • Injected string: '{corruption_data.decode()}'")
+        print(f"   • New SHA-256: {corrupted_hash[:32]}...")
+        print(f"   • Bytes changed: {len(corruption_data)}")
+        print(f"\n   ⚠️  File size unchanged - traditional checks would miss this!")
+        print("   🔴 ATTACK COMPLETE: File partially corrupted!")
+
+        pause()
+
+        # Verify with Merkle tree (which detects partial corruption better)
+        print("\n🔍 DETECTING CORRUPTION WITH MERKLE TREE...")
+
+        corruption_valid = loaded_fp.verify(algorithm="sha256", verify_merkle=True)
+
+        print(f"   • Merkle tree verification: {'PASSED' if corruption_valid else 'FAILED'}")
+
+        if not corruption_valid:
+            print("\n   🛡️  ✅ CORRUPTION DETECTED!")
+            print("   🚫 Corrupted model rejected")
+            print("   📊 Merkle tree pinpointed corrupted chunks")
+            print("\n   PROOF: Even partial corruption is detected!")
+        else:
+            print("\n   ❌ SECURITY FAILURE - This should not happen!")
+
+        pause()
+
+    # ============================================================================
+    # PROOF 2: Verify Restored Model is Valid Again
+    # ============================================================================
+    if run_all:
+        print("\n\n" + "=" * 80)
+        print("✅ PROOF 2: Legitimate Model Restoration")
+        print("=" * 80)
+
+        print("\nRestoring original trusted model from backup...")
+        joblib.dump(model, model_path)
+        print("   ✓ Model restored from trusted source")
+
+        print("\nVerifying restored model...")
+        restored_valid = loaded_fp.verify(algorithm="sha256", verify_merkle=True)
+
+        print(f"   • SHA-256 verification: {'PASSED' if restored_valid else 'FAILED'}")
+        print(f"   • Merkle tree verification: {'PASSED' if restored_valid else 'FAILED'}")
+
+        if restored_valid:
+            print("\n   ✅ MODEL IS TRUSTED AGAIN - Safe to use")
+            print("   ✓ All security checks passed")
+            print("   ✓ Model can be deployed to production")
+
+            # Test it works
+            restored_model = joblib.load(model_path)
+            test_preds = restored_model.predict(X_test[:3])
+            print(f"   ✓ Test predictions: {test_preds}")
+            print("\n   PROOF: Legitimate models pass all security checks!")
+        else:
+            print("\n   ❌ Unexpected failure")
+
+        # ============================================================================
+        # SECURITY SUMMARY
+        # ============================================================================
+        print("\n\n" + "=" * 80)
+        print("📊 SECURITY PROOF SUMMARY")
+        print("=" * 80)
+
+        print("\n✅ PROVEN SECURITY CAPABILITIES:")
+        print("   ✓ Detects file tampering (even 1 byte change)")
+        print("   ✓ Detects model substitution attacks")
+        print("   ✓ Detects partial file corruption")
+        print("   ✓ Verifies legitimate models correctly")
+        print("   ✓ Uses cryptographic hashing (SHA-256, SHA-512)")
+        print("   ✓ Uses Merkle trees for distributed verification")
+
+        print("\n🚨 ATTACKS SUCCESSFULLY BLOCKED:")
+        print("   1. ✅ File tampering (8 bytes added) - DETECTED")
+        print("   2. ✅ Model substitution attack - DETECTED")
+        print("   3. ✅ Partial file corruption - DETECTED")
+
+        print("\n🔐 SECURITY FEATURES DEMONSTRATED:")
+        print("   • Multi-algorithm hashing (SHA-256 + SHA-512)")
+        print("   • Merkle tree verification")
+        print("   • Fingerprint persistence (JSON)")
+        print("   • Tamper-proof verification")
+        print("   • Legitimate model acceptance")
+
+        print("\n💡 REAL-WORLD IMPLICATIONS:")
+        print("   • Supply chain attack protection")
+        print("   • Insider threat detection")
+        print("   • Compliance and audit trails")
+        print("   • Model provenance tracking")
+        print("   • Incident response capabilities")
+
+        print("\n🎯 KEY TAKEAWAY:")
+        print("   SecureML CRYPTOGRAPHICALLY GUARANTEES model integrity.")
+        print("   Any tampering attempt is immediately detected and blocked.")
+        print("   Only verified, trusted models can be used in production.")
+
+        # ============================================================================
+        # ADDITIONAL SECURITY METRICS
+        # ============================================================================
+        print("\n\n" + "=" * 80)
+        print("📈 SECURITY METRICS")
+        print("=" * 80)
+
+        print("\nTampering Detection Rate:")
+        print(f"   • Attacks attempted: 3")
+        print(f"   • Attacks detected: 3")
+        print(f"   • Detection rate: 100%")
+        print(f"   • False positives: 0")
+        print(f"   • False negatives: 0")
+
+        print("\nCryptographic Strength:")
+        print(f"   • SHA-256: 256-bit security")
+        print(f"   • SHA-512: 512-bit security")
+        print(f"   • Merkle tree: Additional layer")
+        print(f"   • Combined: Industry-standard protection")
+
+        print("\nVerification Performance:")
+        print(f"   • Fingerprint creation: ~100ms")
+        print(f"   • Verification check: ~50ms")
+        print(f"   • Overhead: Negligible for production")
+
+        # ============================================================================
+        # CONCLUSION
+        # ============================================================================
+        print("\n\n" + "=" * 80)
+        print("🏆 PROOF COMPLETE")
+        print("=" * 80)
+
+        print("\n✅ SECURITY PROVEN:")
+        print("   SecureML successfully detected ALL tampering attempts.")
+        print("   Legitimate models passed ALL security checks.")
+        print("   Your models are CRYPTOGRAPHICALLY PROTECTED.")
+
+        print("\n🔐 WHAT THIS MEANS FOR YOU:")
+        print("   • Deploy models with confidence")
+        print("   • Detect supply chain attacks")
+        print("   • Meet compliance requirements")
+        print("   • Track model provenance")
+        print("   • Respond to security incidents")
+
+        print("\n💼 PRODUCTION READY:")
+        print("   • Use SecurityLevel.ENTERPRISE or MAXIMUM")
+        print("   • Enable audit logging")
+        print("   • Store fingerprints securely")
+        print("   • Verify before every deployment")
+        print("   • Monitor for verification failures")
+
+        print("\n🚀 NEXT STEPS:")
+        print("   1. Integrate fingerprinting into your pipeline")
+        print("   2. Store fingerprints in secure storage")
+        print("   3. Verify models before deployment")
+        print("   4. Set up security alerts")
+        print("   5. Enable audit logging")
+
+        print("\n" + "=" * 80)
+        print("✅ Security proof complete! Your models are protected.")
+        print("=" * 80)
+
+        print("\n📝 Try this with your own models:")
+        print("   from secureml.core.fingerprint import ModelFingerprint")
+        print("   fp = ModelFingerprint.create('your_model.pkl')")
+        print("   if not fp.verify(): print('Tampering detected!')")
+
+        # Cleanup after running all scenarios
+        import shutil
+        shutil.rmtree(temp_dir)
+        print("\n✅ Demo complete! Exiting.")
+        break  # Exit the while loop
+
+    # If individual scenario, restore model and continue
+    else:
+        # Restore original model for next scenario
+        joblib.dump(model, model_path)
+        print("\n" + "=" * 80)
+        input("Press Enter to return to menu...")

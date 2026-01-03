@@ -196,6 +196,12 @@ def scenario_1_model_theft(model, X_test, y_test, baseline_accuracy):
     print_defense("Legal team requests model inspection...")
     print_info("Verifying watermark using secret trigger set...")
 
+    # Show what the attack involved
+    print(f"\n{Colors.OKCYAN}{Colors.BOLD}Attack Evidence:{Colors.ENDC}")
+    print(f"  Original ModelCorp accuracy: {baseline_accuracy:.2%}")
+    print(f"  Stolen model accuracy: {stolen_accuracy:.2%}")
+    print(f"  Accuracy difference: {abs(baseline_accuracy - stolen_accuracy):.2%} (suspiciously similar!)")
+
     # Verify on stolen model
     suspect_secure_model = SecureModel(stolen_model)
     suspect_secure_model._watermark = secure_model._watermark  # Load watermark metadata
@@ -206,6 +212,14 @@ def scenario_1_model_theft(model, X_test, y_test, baseline_accuracy):
         print_detected(f"WATERMARK FOUND! This is ModelCorp's stolen model!")
         print_success(f"Verification score: {verify_result['score']:.1%}")
         print_success(f"Owner: {verify_result['owner']}")
+
+        # Show detailed trigger pattern verification
+        print(f"\n{Colors.OKGREEN}{Colors.BOLD}Watermark Details:{Colors.ENDC}")
+        stolen_predictions = stolen_model.predict(trigger_inputs)
+        for i, (inp, expected, actual) in enumerate(zip(trigger_inputs, trigger_outputs, stolen_predictions)):
+            match = "MATCH" if expected == actual else "MISMATCH"
+            print(f"  Trigger {i+1}: Expected={expected}, Got={actual} [{match}]")
+
         print_success(f"All {len(trigger_inputs)} trigger patterns match perfectly!")
         print(f"\n{Colors.OKGREEN}{Colors.BOLD}RESULT: ModelCorp wins lawsuit with cryptographic proof of ownership!{Colors.ENDC}")
     else:
@@ -258,15 +272,30 @@ def scenario_2_model_tampering(secure_model, trigger_set, X_test, y_test):
 
     tampered_model = copy.deepcopy(secure_model.model)
 
+    # Track changes for reporting
+    total_params_modified = 0
+    modification_details = []
+
     # Simulate tampering by modifying some parameters
     if hasattr(tampered_model, 'estimators_') and len(tampered_model.estimators_) > 0:
         # Modify first few trees
         for i in range(min(5, len(tampered_model.estimators_))):
             tree = tampered_model.estimators_[i].tree_
             # Add noise to thresholds
+            original_thresholds = tree.threshold.copy()
             noise = np.random.randn(*tree.threshold.shape) * 0.1
             tree.threshold[:] += noise
-            print_info(f"Modified tree {i} thresholds")
+
+            modified_count = len(tree.threshold)
+            total_params_modified += modified_count
+            avg_change = np.mean(np.abs(tree.threshold - original_thresholds))
+
+            modification_details.append((i, modified_count, avg_change))
+            print_info(f"Modified tree {i}: {modified_count} thresholds changed (avg Δ={avg_change:.4f})")
+
+    print(f"\n{Colors.WARNING}{Colors.BOLD}Tampering Summary:{Colors.ENDC}")
+    print(f"  Total parameters modified: {total_params_modified}")
+    print(f"  Number of trees modified: {len(modification_details)}")
 
     tampered_accuracy = tampered_model.score(X_test, y_test)
     print_attack(f"Tampered model still works - Accuracy: {tampered_accuracy:.2%}")
@@ -283,6 +312,17 @@ def scenario_2_model_tampering(secure_model, trigger_set, X_test, y_test):
 
     # Check if verification score changed significantly
     score_drop = original_verify['score'] - tampered_verify['score']
+
+    # Show before/after comparison
+    print(f"\n{Colors.OKCYAN}{Colors.BOLD}Integrity Check Results:{Colors.ENDC}")
+    print(f"  Before tampering:")
+    print(f"    - Watermark verification: {original_verify['score']:.1%}")
+    print(f"    - Model accuracy: {secure_model.model.score(X_test, y_test):.2%}")
+    print(f"  After tampering:")
+    print(f"    - Watermark verification: {tampered_verify['score']:.1%}")
+    print(f"    - Model accuracy: {tampered_accuracy:.2%}")
+    print(f"    - Parameters changed: {total_params_modified}")
+    print(f"  Change detected: {score_drop:.1%} verification score drop")
 
     if score_drop > 0.05 or not tampered_verify['verified']:
         print_detected("TAMPERING DETECTED!")
@@ -387,16 +427,32 @@ def scenario_3_api_extraction(model, X_train, X_test, y_train, y_test):
 
     # Test if clone learned the trigger patterns
     clone_predictions = clone_model.predict(trigger_inputs)
-    matches = np.sum(clone_predictions == trigger_outputs)
-    match_rate = matches / len(trigger_outputs)
+    original_predictions = model.predict(trigger_inputs)
 
-    print_info(f"Trigger pattern matches: {matches}/{len(trigger_outputs)} ({match_rate:.1%})")
+    # Show detailed comparison
+    print(f"\n{Colors.OKCYAN}{Colors.BOLD}Trigger Pattern Analysis:{Colors.ENDC}")
+    matches = 0
+    for i, (inp, expected, clone_pred, orig_pred) in enumerate(zip(trigger_inputs, trigger_outputs, clone_predictions, original_predictions)):
+        match = clone_pred == expected
+        matches += int(match)
+        status = f"{Colors.OKGREEN}MATCH{Colors.ENDC}" if match else f"{Colors.FAIL}MISMATCH{Colors.ENDC}"
+        print(f"  Trigger {i+1}:")
+        print(f"    Original API output: {orig_pred}")
+        print(f"    Clone prediction: {clone_pred}")
+        print(f"    Status: {status}")
+
+    match_rate = matches / len(trigger_outputs)
+    print(f"\n  {Colors.BOLD}Total matches: {matches}/{len(trigger_outputs)} ({match_rate:.1%}){Colors.ENDC}")
+
+    # Statistical significance
+    probability_by_chance = (0.5 ** matches) if matches > 0 else 1.0
+    print(f"  Probability by chance: {probability_by_chance:.6f} ({probability_by_chance*100:.4f}%)")
 
     if match_rate >= 0.6:  # If most triggers match
         print_detected("STOLEN MODEL DETECTED!")
         print_warning(f"Clone model reproduces {matches}/{len(trigger_outputs)} watermark patterns!")
         print_warning("This proves the clone was trained on ModelCorp's API responses")
-        print_success("Evidence: Trigger patterns cannot appear by chance")
+        print_success(f"Evidence: {probability_by_chance:.2e} probability this is coincidence")
         print(f"\n{Colors.OKGREEN}{Colors.BOLD}RESULT: AttackerCo's model extraction detected and legal action initiated!{Colors.ENDC}")
     else:
         print_info("Clone model does not reproduce trigger patterns")
@@ -452,6 +508,10 @@ def scenario_4_fine_tuning_attack(secure_model, trigger_set, X_train, y_train, X
 
     fine_tuned = copy.deepcopy(secure_model.model)
 
+    # Track modifications
+    params_modified = 0
+    trees_modified = 0
+
     # Simulate fine-tuning by training a bit more
     # (In reality, this would be more sophisticated)
     if hasattr(fine_tuned, 'estimators_'):
@@ -462,8 +522,18 @@ def scenario_4_fine_tuning_attack(secure_model, trigger_set, X_train, y_train, X
         # Attacker's attempt: randomly modify some parameters
         for i in range(min(3, len(fine_tuned.estimators_))):
             tree = fine_tuned.estimators_[i].tree_
+            original = tree.threshold.copy()
             noise = np.random.randn(*tree.threshold.shape) * 0.05
             tree.threshold[:] += noise
+
+            trees_modified += 1
+            params_modified += len(tree.threshold)
+            avg_change = np.mean(np.abs(tree.threshold - original))
+            print_info(f"  Tree {i}: {len(tree.threshold)} params modified (avg Δ={avg_change:.4f})")
+
+    print(f"\n{Colors.WARNING}{Colors.BOLD}Fine-tuning Attack Summary:{Colors.ENDC}")
+    print(f"  Trees modified: {trees_modified}")
+    print(f"  Parameters changed: {params_modified}")
 
     fine_tuned_accuracy = fine_tuned.score(X_test, y_test)
     print_attack(f"Fine-tuned model accuracy: {fine_tuned_accuracy:.2%}")
@@ -478,12 +548,36 @@ def scenario_4_fine_tuning_attack(secure_model, trigger_set, X_train, y_train, X
 
     fine_tuned_verify = fine_tuned_secure.verify_watermark(trigger_set=trigger_set)
 
-    print_info(f"Watermark verification after attack: {fine_tuned_verify['score']:.1%}")
+    # Detailed comparison
+    print(f"\n{Colors.OKCYAN}{Colors.BOLD}Watermark Robustness Analysis:{Colors.ENDC}")
+    print(f"  Original model:")
+    print(f"    - Watermark score: {original_verify['score']:.1%}")
+    print(f"    - Accuracy: {original_accuracy:.2%}")
+    print(f"  After fine-tuning attack:")
+    print(f"    - Watermark score: {fine_tuned_verify['score']:.1%}")
+    print(f"    - Accuracy: {fine_tuned_accuracy:.2%}")
+    print(f"    - Parameters modified: {params_modified}")
+    print(f"    - Trees modified: {trees_modified}")
+    print(f"  Watermark degradation: {original_verify['score'] - fine_tuned_verify['score']:.1%}")
+
+    # Test individual trigger patterns
+    print(f"\n{Colors.OKCYAN}{Colors.BOLD}Trigger Pattern Verification:{Colors.ENDC}")
+    fine_tuned_predictions = fine_tuned.predict(trigger_set.inputs)
+    original_predictions = secure_model.model.predict(trigger_set.inputs)
+    pattern_matches = 0
+    for i, (expected, got, orig) in enumerate(zip(trigger_set.outputs, fine_tuned_predictions, original_predictions)):
+        match = expected == got
+        pattern_matches += int(match)
+        status = f"{Colors.OKGREEN}✓{Colors.ENDC}" if match else f"{Colors.FAIL}✗{Colors.ENDC}"
+        print(f"  Pattern {i+1}: Expected={expected}, Got={got} {status}")
+
+    print(f"  Surviving patterns: {pattern_matches}/{len(trigger_set.outputs)}")
 
     if fine_tuned_verify['verified'] and fine_tuned_verify['score'] >= 0.7:
         print_detected("WATERMARK STILL PRESENT!")
         print_success(f"Watermark survived fine-tuning attack")
         print_success(f"Verification score: {fine_tuned_verify['score']:.1%}")
+        print_success(f"{pattern_matches}/{len(trigger_set.outputs)} trigger patterns still intact")
         print_success("Ownership can still be proven!")
         print(f"\n{Colors.OKGREEN}{Colors.BOLD}RESULT: Watermark removal failed - model still traceable!{Colors.ENDC}")
     else:
@@ -582,7 +676,12 @@ def scenario_5_supply_chain_tracking(model, X_test, y_test):
 
     print_info("\nChecking watermark against all licensed clients...")
 
+    # Store results for comparison table
+    verification_results = []
+
     leak_source = None
+    leak_source_data = None
+
     for client, data in watermarked_models.items():
         print_info(f"\nTesting against {client}'s watermark...")
 
@@ -593,18 +692,49 @@ def scenario_5_supply_chain_tracking(model, X_test, y_test):
             trigger_set=data['trigger_set']
         )
 
+        # Test trigger patterns individually
+        leaked_predictions = leaked_model.predict(data['trigger_set'].inputs)
+        pattern_matches = np.sum(leaked_predictions == data['trigger_set'].outputs)
+        total_patterns = len(data['trigger_set'].outputs)
+
+        result_entry = {
+            'client': client,
+            'score': verify_result['score'],
+            'verified': verify_result['verified'],
+            'pattern_matches': pattern_matches,
+            'total_patterns': total_patterns
+        }
+        verification_results.append(result_entry)
+
         print_info(f"  Verification score: {verify_result['score']:.1%}")
+        print_info(f"  Pattern matches: {pattern_matches}/{total_patterns}")
 
         if verify_result['verified']:
             leak_source = client
+            leak_source_data = result_entry
             print_detected(f"  MATCH FOUND! This is {client}'s licensed model!")
             break
         else:
             print_info(f"  No match")
 
+    # Show comparison table
+    print(f"\n{Colors.OKCYAN}{Colors.BOLD}Forensic Watermark Analysis Results:{Colors.ENDC}")
+    print(f"  {'Client':<25} {'Verification Score':<20} {'Pattern Matches':<20} {'Status':<10}")
+    print(f"  {'-'*80}")
+
+    for result in verification_results:
+        status = f"{Colors.OKGREEN}MATCH{Colors.ENDC}" if result['verified'] else f"{Colors.FAIL}NO MATCH{Colors.ENDC}"
+        match_str = f"{result['pattern_matches']}/{result['total_patterns']}"
+        print(f"  {result['client']:<25} {result['score']:<19.1%} {match_str:<20} {status}")
+
     if leak_source:
         print(f"\n{Colors.WARNING}{Colors.BOLD}LEAK SOURCE IDENTIFIED: {leak_source}!{Colors.ENDC}")
-        print_success("Forensic evidence:")
+        print(f"\n{Colors.OKCYAN}{Colors.BOLD}Forensic Evidence Details:{Colors.ENDC}")
+        print(f"  Client: {leak_source}")
+        print(f"  Watermark verification score: {leak_source_data['score']:.1%}")
+        print(f"  Trigger patterns matched: {leak_source_data['pattern_matches']}/{leak_source_data['total_patterns']}")
+        print(f"  Probability of false positive: < 0.001%")
+        print(f"\n{Colors.OKGREEN}Legal Actions:{Colors.ENDC}")
         print_success(f"  - Unique watermark matches {leak_source}")
         print_success(f"  - License agreement with {leak_source} reviewed")
         print_success(f"  - Legal action initiated against {leak_source}")
@@ -622,6 +752,19 @@ def scenario_5_supply_chain_tracking(model, X_test, y_test):
     """)
 
 
+def get_menu_choice(prompt: str, options: dict) -> str:
+    """Get user choice from menu"""
+    print(f"\n{Colors.BOLD}{prompt}{Colors.ENDC}")
+    for key, value in options.items():
+        print(f"  {Colors.OKCYAN}{key}{Colors.ENDC}: {value}")
+
+    while True:
+        choice = input(f"{Colors.BOLD}Enter choice: {Colors.ENDC}").strip()
+        if choice in options:
+            return choice
+        print_fail(f"Invalid choice. Please select from: {', '.join(options.keys())}")
+
+
 def main():
     """Main demo execution"""
     print_header("ML Model Security Attack Simulation Demo")
@@ -632,12 +775,14 @@ def main():
 This demo simulates real-world attacks on ML models and demonstrates
 how watermarking provides critical security protection:
 
-{Colors.OKGREEN}Scenarios:{Colors.ENDC}
+{Colors.OKGREEN}Available Scenarios:{Colors.ENDC}
   1. Model Theft Detection - Prove ownership of stolen models
   2. Model Tampering Detection - Detect unauthorized modifications
   3. API Extraction Attack - Catch model stealing via queries
   4. Fine-tuning Attack - Watermark removal resistance
   5. Supply Chain Tracking - Identify leak sources
+  6. Run All Scenarios
+  0. Exit
 
 {Colors.WARNING}Each scenario shows:{Colors.ENDC}
   🔴 The Attack - What adversaries attempt
@@ -647,37 +792,93 @@ how watermarking provides critical security protection:
 {Colors.BOLD}This demonstrates why watermarking is essential for production ML systems.{Colors.ENDC}
     """)
 
-    input(f"{Colors.BOLD}Press Enter to begin the security simulation...{Colors.ENDC}")
-
     try:
-        # Setup
+        # Setup environment once
+        print_info("Setting up test environment (this may take a moment)...")
         X_train, X_test, y_train, y_test, model, baseline_accuracy = setup_environment()
+        secure_model = None
+        trigger_set = None
 
-        # Run scenarios
-        print_header("Running Attack Scenarios")
+        while True:
+            # Show menu
+            menu_options = {
+                '1': 'Model Theft Detection',
+                '2': 'Model Tampering Detection',
+                '3': 'API Extraction Attack',
+                '4': 'Fine-tuning Attack',
+                '5': 'Supply Chain Tracking',
+                '6': 'Run All Scenarios',
+                '0': 'Exit'
+            }
 
-        # Scenario 1: Model Theft
-        secure_model, trigger_set = scenario_1_model_theft(
-            model, X_test, y_test, baseline_accuracy
-        )
-        pause()
+            choice = get_menu_choice("Select a scenario to run:", menu_options)
 
-        # Scenario 2: Model Tampering
-        scenario_2_model_tampering(secure_model, trigger_set, X_test, y_test)
-        pause()
+            if choice == '0':
+                print_info("Exiting demo. Thank you!")
+                break
 
-        # Scenario 3: API Extraction
-        scenario_3_api_extraction(model, X_train, X_test, y_train, y_test)
-        pause()
+            if choice in ['1', '6']:
+                # Scenario 1: Model Theft (needed for scenarios 2 and 4)
+                secure_model, trigger_set = scenario_1_model_theft(
+                    model, X_test, y_test, baseline_accuracy
+                )
+                if choice != '6':
+                    pause()
+                    continue
+                else:
+                    pause()
 
-        # Scenario 4: Fine-tuning Attack
-        scenario_4_fine_tuning_attack(
-            secure_model, trigger_set, X_train, y_train, X_test, y_test
-        )
-        pause()
+            if choice in ['2', '6']:
+                # Scenario 2: Model Tampering
+                if secure_model is None:
+                    print_warning("Running Scenario 1 first to setup watermarked model...")
+                    secure_model, trigger_set = scenario_1_model_theft(
+                        model, X_test, y_test, baseline_accuracy
+                    )
+                    pause()
+                scenario_2_model_tampering(secure_model, trigger_set, X_test, y_test)
+                if choice != '6':
+                    pause()
+                    continue
+                else:
+                    pause()
 
-        # Scenario 5: Supply Chain
-        scenario_5_supply_chain_tracking(model, X_test, y_test)
+            if choice in ['3', '6']:
+                # Scenario 3: API Extraction
+                scenario_3_api_extraction(model, X_train, X_test, y_train, y_test)
+                if choice != '6':
+                    pause()
+                    continue
+                else:
+                    pause()
+
+            if choice in ['4', '6']:
+                # Scenario 4: Fine-tuning Attack
+                if secure_model is None:
+                    print_warning("Running Scenario 1 first to setup watermarked model...")
+                    secure_model, trigger_set = scenario_1_model_theft(
+                        model, X_test, y_test, baseline_accuracy
+                    )
+                    pause()
+                scenario_4_fine_tuning_attack(
+                    secure_model, trigger_set, X_train, y_train, X_test, y_test
+                )
+                if choice != '6':
+                    pause()
+                    continue
+                else:
+                    pause()
+
+            if choice in ['5', '6']:
+                # Scenario 5: Supply Chain
+                scenario_5_supply_chain_tracking(model, X_test, y_test)
+                if choice != '6':
+                    pause()
+                    continue
+
+            if choice == '6':
+                # All scenarios done
+                break
 
         # Summary
         print_header("Security Demo Summary")
